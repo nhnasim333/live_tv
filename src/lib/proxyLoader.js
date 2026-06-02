@@ -1,5 +1,35 @@
 import { buildProxyUrl } from './playlist'
 
+function proxifyUrl(resourceUrl, baseUrl) {
+  try {
+    const absoluteUrl = new URL(resourceUrl, baseUrl).toString()
+    return buildProxyUrl(absoluteUrl)
+  } catch {
+    return resourceUrl
+  }
+}
+
+function rewriteManifest(content, baseUrl) {
+  return content
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim()
+
+      if (!trimmed || trimmed.startsWith('#EXTM3U')) {
+        return line
+      }
+
+      if (trimmed.startsWith('#')) {
+        return line.replace(/URI="([^"]+)"/gi, (_, uri) => {
+          return `URI="${proxifyUrl(uri, baseUrl)}"`
+        })
+      }
+
+      return proxifyUrl(trimmed, baseUrl)
+    })
+    .join('\n')
+}
+
 function createStats() {
   return {
     aborted: false,
@@ -76,16 +106,27 @@ export default class ProxyLoader {
         ? await response.arrayBuffer()
         : await response.text()
 
+      const contentType = response.headers.get('content-type') || ''
+      const shouldRewriteManifest =
+        typeof data === 'string' &&
+        (contentType.toLowerCase().includes('mpegurl') ||
+          data.trimStart().startsWith('#EXTM3U'))
+
+      const responseData = shouldRewriteManifest
+        ? rewriteManifest(data, context.url)
+        : data
+
       this.stats.loading.end = performance.now()
-      this.stats.loaded = typeof data === 'string' ? data.length : data.byteLength
+      this.stats.loaded =
+        typeof responseData === 'string' ? responseData.length : responseData.byteLength
       this.stats.total = this.stats.loaded
 
       callbacks.onSuccess(
         {
           url: proxiedUrl,
-          data,
+          data: responseData,
           code: response.status,
-          text: typeof data === 'string' ? data : undefined,
+          text: typeof responseData === 'string' ? responseData : undefined,
         },
         this.stats,
         context,

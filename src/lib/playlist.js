@@ -12,19 +12,82 @@ function categorizeChannel(groupTitle = '', channelName = '') {
   const group = groupTitle.toLowerCase()
   const name = channelName.toLowerCase()
 
-  if (group.includes('sports') || name.includes('sports') || name.includes('tsports')) {
+  const sportsKeywords = [
+    'sports',
+    'sport',
+    'football',
+    'fifa',
+    'cricket',
+    'icc',
+    'ipl',
+    'wwe',
+    'premier',
+    'league',
+    'tennis',
+    'motorsport',
+    'formula',
+    'basketball',
+    'nba',
+    'soccer',
+    'golf',
+    'boxing',
+    'badminton',
+    'hockey',
+    'rugby',
+  ]
+
+  const newsKeywords = ['news', 'breaking', 'cnn', 'bbc news', 'aljazeera', 'ndtv']
+  const movieKeywords = ['movie', 'movies', 'cinema', 'film', 'hollywood']
+  const musicKeywords = ['music', 'song', 'songs', 'audio', 'mtv', 'jazz']
+  const kidsKeywords = ['kids', 'cartoon', 'nick', 'pogo', 'junior', 'baby', 'disney']
+  const documentaryKeywords = [
+    'documentary',
+    'infotainment',
+    'information',
+    'discovery',
+    'history',
+    'nature',
+    'travel',
+    'wild',
+    'science',
+  ]
+  const religiousKeywords = ['religious', 'religion', 'islam', 'islamic', 'quran', 'makkah', 'madina']
+
+  const includesAny = (target, keywords) => keywords.some((keyword) => target.includes(keyword))
+
+  if (includesAny(group, sportsKeywords) || includesAny(name, sportsKeywords)) {
     return 'Sports'
   }
 
-  if (group.includes('movie') || name.includes('movie') || name.includes('cinema')) {
+  if (includesAny(group, newsKeywords) || includesAny(name, newsKeywords)) {
+    return 'News'
+  }
+
+  if (includesAny(group, movieKeywords) || includesAny(name, movieKeywords)) {
     return 'Movies'
   }
 
-  if (group.includes('music') || name.includes('music') || name.includes('song')) {
+  if (includesAny(group, musicKeywords) || includesAny(name, musicKeywords)) {
     return 'Music'
   }
 
-  return 'News'
+  if (includesAny(group, kidsKeywords) || includesAny(name, kidsKeywords)) {
+    return 'Kids'
+  }
+
+  if (includesAny(group, documentaryKeywords) || includesAny(name, documentaryKeywords)) {
+    return 'Documentary'
+  }
+
+  if (includesAny(group, religiousKeywords) || includesAny(name, religiousKeywords)) {
+    return 'Religious'
+  }
+
+  if (group.includes('live') || name.includes('live')) {
+    return 'Live'
+  }
+
+  return 'Entertainment'
 }
 
 function splitExtinf(extinfLine) {

@@ -1,16 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import ChannelList from './components/ChannelList'
 import VideoPlayer from './components/VideoPlayer'
-import { PLAYLIST_URL, STORAGE_KEY } from './data/channels'
+import {
+  DEFAULT_PLAYLIST_SOURCE_ID,
+  PLAYLIST_SOURCES,
+  SOURCE_STORAGE_KEY,
+  getChannelStorageKey,
+} from './data/channels'
 import { buildProxyUrl, parsePlaylist } from './lib/playlist'
 
 function App() {
   const [channels, setChannels] = useState([])
+  const [activeSourceId, setActiveSourceId] = useState(() => {
+    return localStorage.getItem(SOURCE_STORAGE_KEY) || DEFAULT_PLAYLIST_SOURCE_ID
+  })
   const [activeChannelUrl, setActiveChannelUrl] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || ''
+    return localStorage.getItem(getChannelStorageKey(DEFAULT_PLAYLIST_SOURCE_ID)) || ''
   })
   const [isChannelListLoading, setIsChannelListLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+
+  const activeSource = useMemo(() => {
+    return (
+      PLAYLIST_SOURCES.find((source) => source.id === activeSourceId) ||
+      PLAYLIST_SOURCES[0]
+    )
+  }, [activeSourceId])
 
   const activeChannel = useMemo(() => {
     if (!channels.length) {
@@ -30,11 +45,22 @@ function App() {
       setLoadError('')
 
       try {
-        const response = await fetch(buildProxyUrl(PLAYLIST_URL), {
-          cache: 'no-store',
-        })
+        const candidateUrls = [activeSource.localPath, activeSource.remoteUrl].filter(Boolean)
+        let response = null
 
-        if (!response.ok) {
+        for (const playlistUrl of candidateUrls) {
+          try {
+            response = await fetch(playlistUrl, { cache: 'no-store' })
+
+            if (response.ok) {
+              break
+            }
+          } catch {
+            response = null
+          }
+        }
+
+        if (!response?.ok) {
           throw new Error(`Playlist request failed with status ${response.status}`)
         }
 
@@ -48,7 +74,7 @@ function App() {
         setChannels(parsedChannels)
 
         const restoredChannel = parsedChannels.find(
-          (channel) => channel.url === localStorage.getItem(STORAGE_KEY),
+          (channel) => channel.url === localStorage.getItem(getChannelStorageKey(activeSource.id)),
         )
 
         setActiveChannelUrl(restoredChannel?.url || parsedChannels[0]?.url || '')
@@ -71,13 +97,15 @@ function App() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [activeSource])
 
   useEffect(() => {
+    localStorage.setItem(SOURCE_STORAGE_KEY, activeSourceId)
+
     if (activeChannel?.url) {
-      localStorage.setItem(STORAGE_KEY, activeChannel.url)
+      localStorage.setItem(getChannelStorageKey(activeSource.id), activeChannel.url)
     }
-  }, [activeChannel])
+  }, [activeChannel, activeSource.id, activeSourceId])
 
   return (
     <div className="relative min-h-dvh overflow-hidden bg-neutral-950 text-neutral-100 lg:h-dvh">
@@ -88,6 +116,30 @@ function App() {
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300/90">
             Live Streaming Platform
           </p>
+          <div className="flex flex-wrap items-center gap-2 pt-2">
+            {PLAYLIST_SOURCES.map((source) => {
+              const isActiveSource = activeSource.id === source.id
+
+              return (
+                <button
+                  key={source.id}
+                  type="button"
+                  onClick={() => setActiveSourceId(source.id)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    isActiveSource
+                      ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-200'
+                      : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-500'
+                  }`}
+                  title={source.description}
+                >
+                  {source.label}
+                </button>
+              )
+            })}
+            <span className="text-xs text-neutral-400">
+              {channels.length} channels in {activeSource.label}
+            </span>
+          </div>
         </header>
 
         {loadError && (

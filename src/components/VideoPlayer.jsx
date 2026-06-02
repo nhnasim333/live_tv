@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ReactPlayer from 'react-player'
 import ProxyLoader from '../lib/proxyLoader'
 
 function VideoPlayer({ channel, isLoading }) {
   const [isPlayerLoading, setIsPlayerLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+
+  useEffect(() => {
+    setIsPlayerLoading(true)
+    setHasError(false)
+  }, [channel?.url])
 
   if (isLoading && !channel) {
     return (
@@ -49,9 +54,12 @@ function VideoPlayer({ channel, isLoading }) {
             height="100%"
             controls
             playing
-            muted
             playsInline
             onReady={() => setIsPlayerLoading(false)}
+            onPlay={() => setIsPlayerLoading(false)}
+            onPlaying={() => setIsPlayerLoading(false)}
+            onBuffer={() => setIsPlayerLoading(true)}
+            onBufferEnd={() => setIsPlayerLoading(false)}
             onError={() => {
               setIsPlayerLoading(false)
               setHasError(true)
@@ -62,6 +70,10 @@ function VideoPlayer({ channel, isLoading }) {
                 hlsOptions: {
                   enableWorker: true,
                   loader: ProxyLoader,
+                  liveSyncDurationCount: 3,
+                  liveMaxLatencyDurationCount: 6,
+                  maxBufferLength: 30,
+                  backBufferLength: 30,
                 },
               },
             }}

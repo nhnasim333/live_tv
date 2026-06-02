@@ -16,7 +16,18 @@ function ChannelList({ channels, activeChannel, onSelectChannel, isLoading }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
 
-  const categories = ['All', 'News', 'Sports', 'Movies', 'Music']
+  const categories = [
+    'All',
+    'Sports',
+    'News',
+    'Movies',
+    'Music',
+    'Entertainment',
+    'Kids',
+    'Documentary',
+    'Religious',
+    'Live',
+  ]
 
   const filteredChannels = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
