@@ -127,6 +127,7 @@ export function parsePlaylist(content) {
   let pendingName = ''
   let pendingLogo = ''
   let pendingGroup = ''
+  let channelCounter = 0 // 💡 Add a counter for fallback uniqueness
 
   for (const line of lines) {
     if (line.startsWith('# Source:')) {
@@ -164,9 +165,19 @@ export function parsePlaylist(content) {
     const groupTitle = pendingGroup || extractAttr(joinedMeta, 'group-title')
     const name = pendingName
     const category = categorizeChannel(groupTitle, name)
+    
+    channelCounter++;
+
+    // 💡 FIX: Generate a clean, safe string key out of the channel name
+    const cleanId = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-') // Replace spaces/punctuation with hyphens
+      .replace(/-+/g, '-')        // Remove double hyphens
+      .replace(/^-|-$/g, '')      // Trim edge hyphens
+      || `channel-${channelCounter}`;
 
     channels.push({
-      id: line,
+      id: `${cleanId}-${channelCounter}`, // 💡 Guaranteed alphanumeric slug (e.g., "news18-bangla-1")
       name,
       logo:
         logo ||

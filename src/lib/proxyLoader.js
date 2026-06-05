@@ -1,15 +1,27 @@
 import { buildProxyUrl } from './playlist'
 
-function proxifyUrl(resourceUrl, baseUrl) {
+// Global variable tracking the active channel context across loader instances
+export let ACTIVE_CHANNEL_TRACKING_ID = null;
+
+export function setActiveChannelTrackingId(id) {
+  ACTIVE_CHANNEL_TRACKING_ID = id;
+}
+
+function proxifyUrl(resourceUrl, baseUrl, channelId) {
   try {
     const absoluteUrl = new URL(resourceUrl, baseUrl).toString()
-    return buildProxyUrl(absoluteUrl)
+    let proxied = buildProxyUrl(absoluteUrl)
+    
+    if (channelId) {
+      proxied += `&channel_id=${encodeURIComponent(channelId)}`
+    }
+    return proxied
   } catch {
     return resourceUrl
   }
 }
 
-function rewriteManifest(content, baseUrl) {
+function rewriteManifest(content, baseUrl, channelId) {
   return content
     .split(/\r?\n/)
     .map((line) => {
@@ -21,39 +33,13 @@ function rewriteManifest(content, baseUrl) {
 
       if (trimmed.startsWith('#')) {
         return line.replace(/URI="([^"]+)"/gi, (_, uri) => {
-          return `URI="${proxifyUrl(uri, baseUrl)}"`
+          return `URI="${proxifyUrl(uri, baseUrl, channelId)}"`
         })
       }
 
-      return proxifyUrl(trimmed, baseUrl)
+      return proxifyUrl(trimmed, baseUrl, channelId)
     })
     .join('\n')
-}
-
-function createStats() {
-  return {
-    aborted: false,
-    loaded: 0,
-    retry: 0,
-    total: 0,
-    chunkCount: 0,
-    bwEstimate: 0,
-    loading: {
-      start: 0,
-      first: 0,
-      end: 0,
-      timeout: 0,
-    },
-    parsing: {
-      start: 0,
-      end: 0,
-    },
-    buffering: {
-      start: 0,
-      first: 0,
-      end: 0,
-    },
-  }
 }
 
 export default class ProxyLoader {
@@ -61,7 +47,17 @@ export default class ProxyLoader {
     this.context = null
     this.callbacks = null
     this.controller = null
-    this.stats = createStats()
+    this.stats = {
+      aborted: false,
+      loaded: 0,
+      retry: 0,
+      total: 0,
+      chunkCount: 0,
+      bwEstimate: 0,
+      loading: { start: 0, first: 0, end: 0, timeout: 0 },
+      parsing: { start: 0, end: 0 },
+      buffering: { start: 0, first: 0, end: 0 },
+    }
   }
 
   destroy() {
@@ -75,22 +71,26 @@ export default class ProxyLoader {
       this.controller.abort()
       this.controller = null
     }
-
     this.stats.aborted = true
-
-    if (this.callbacks?.onAbort && this.context) {
-      this.callbacks.onAbort(this.stats, this.context, null)
-    }
   }
 
-  async load(context, _config, callbacks) {
+  async load(context, config, callbacks) {
     this.context = context
     this.callbacks = callbacks
     this.controller = new AbortController()
-    this.stats = createStats()
     this.stats.loading.start = performance.now()
 
-    const proxiedUrl = buildProxyUrl(context.url)
+    // 💡 ULTIMATE FALLBACK FIX: Extract channel ID safely from everywhere
+    const channelId = 
+      ACTIVE_CHANNEL_TRACKING_ID || 
+      config?.currentChannelTrackingId || 
+      config?.config?.hlsOptions?.currentChannelTrackingId || 
+      null;
+
+    let proxiedUrl = buildProxyUrl(context.url)
+    if (channelId) {
+      proxiedUrl += `&channel_id=${encodeURIComponent(channelId)}`
+    }
 
     try {
       const response = await fetch(proxiedUrl, {
@@ -113,7 +113,7 @@ export default class ProxyLoader {
           data.trimStart().startsWith('#EXTM3U'))
 
       const responseData = shouldRewriteManifest
-        ? rewriteManifest(data, context.url)
+        ? rewriteManifest(data, context.url, channelId)
         : data
 
       this.stats.loading.end = performance.now()
@@ -136,7 +136,6 @@ export default class ProxyLoader {
       if (error?.name === 'AbortError') {
         return
       }
-
       this.stats.loading.end = performance.now()
       callbacks.onError(
         {

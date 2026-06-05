@@ -1,15 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import ReactPlayer from 'react-player'
-import ProxyLoader from '../lib/proxyLoader'
+import ProxyLoader, { setActiveChannelTrackingId } from '../lib/proxyLoader'
 
-function VideoPlayer({ channel, isLoading }) {
+function formatPlayerViewers(n) {
+  if (!n) return '0'
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return n.toLocaleString()
+}
+
+function VideoPlayer({ channel, isLoading, liveViewerCount = 0 }) {
   const [isPlayerLoading, setIsPlayerLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [currentUrl, setCurrentUrl] = useState(channel?.url)
 
+  // 💡 Update our global loader variable whenever the active channel updates
   useEffect(() => {
+    if (channel?.id) {
+      setActiveChannelTrackingId(channel.id)
+    }
+  }, [channel?.id])
+
+  if (channel?.url !== currentUrl) {
+    setCurrentUrl(channel?.url)
     setIsPlayerLoading(true)
     setHasError(false)
-  }, [channel?.url])
+  }
 
   if (isLoading && !channel) {
     return (
@@ -31,24 +46,23 @@ function VideoPlayer({ channel, isLoading }) {
 
   return (
     <article className="rounded-2xl border border-neutral-800/80 bg-neutral-900/70 p-3 shadow-[0_20px_65px_-25px_rgba(6,182,212,0.45)] backdrop-blur sm:p-4 lg:p-5">
-      <header className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
-        <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-neutral-400">
-            Now Playing
-          </p>
-          <h2 className="max-w-[75vw] truncate font-display text-lg text-white sm:max-w-[32rem] sm:text-xl" title={channel.name}>
-            {channel.name}
-          </h2>
-        </div>
-        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-3 py-1 text-[11px] font-medium text-emerald-300">
-          LIVE
-        </span>
-      </header>
-
       <div className="relative aspect-video overflow-hidden rounded-xl border border-neutral-800 bg-black">
+        
+        {/* Live Indicator Overlay */}
+        <div className="absolute -top-2 -left-2 z-10 flex items-center overflow-hidden rounded-md bg-black/60 backdrop-blur-md shadow-lg border border-white/10 select-none">
+          <div className="flex items-center gap-1.5 rounded-md bg-neutral-950/80 px-2.5 py-1 text-xs">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-mono text-[11px] font-medium text-emerald-400">
+              {formatPlayerViewers(liveViewerCount)} watching
+            </span>
+          </div>
+        </div>
+
         {!hasError && (
           <ReactPlayer
-            key={channel.url}
             src={channel.url}
             width="100%"
             height="100%"
@@ -73,7 +87,7 @@ function VideoPlayer({ channel, isLoading }) {
                   liveSyncDurationCount: 3,
                   liveMaxLatencyDurationCount: 6,
                   maxBufferLength: 30,
-                  backBufferLength: 30,
+                  backBufferLength: 30
                 },
               },
             }}

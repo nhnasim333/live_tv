@@ -1,121 +1,153 @@
 import { useMemo, useState } from 'react'
+import { PLAYLIST_SOURCES } from '../data/channels'
+import { useViewerCounts } from '../hooks/useViewerCounts'
 
 function ChannelCardSkeleton() {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/70 p-3">
-      <div className="h-12 w-12 animate-pulse rounded-lg bg-neutral-700" />
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="h-3 w-3/4 animate-pulse rounded bg-neutral-700" />
-        <div className="h-2.5 w-1/2 animate-pulse rounded bg-neutral-800" />
-      </div>
+    <div className="w-[88px] flex-shrink-0 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900/70 p-2">
+      <div className="mx-auto mb-2 h-9 w-9 rounded-lg bg-neutral-700" />
+      <div className="mx-auto mb-1 h-2 w-3/4 rounded bg-neutral-700" />
+      <div className="mx-auto h-2 w-1/2 rounded bg-neutral-800" />
     </div>
   )
 }
 
-function ChannelList({ channels, activeChannel, onSelectChannel, isLoading }) {
+function formatViewers(n) {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
+}
+
+const CATEGORIES = [
+  'All', 'Sports', 'News', 'Movies', 'Music',
+  'Entertainment', 'Kids', 'Documentary', 'Religious', 'Live',
+]
+
+function ChannelList({
+  channels,
+  activeChannel,
+  activeSourceId,
+  onSelectChannel,
+  onSelectSource,
+  isLoading,
+}) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
-
-  const categories = [
-    'All',
-    'Sports',
-    'News',
-    'Movies',
-    'Music',
-    'Entertainment',
-    'Kids',
-    'Documentary',
-    'Religious',
-    'Live',
-  ]
+  const viewerCounts = useViewerCounts(channels)
 
   const filteredChannels = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
-
     return channels.filter((channel) => {
-      const categoryMatch =
-        activeCategory === 'All' || channel.category === activeCategory
+      const categoryMatch = activeCategory === 'All' || channel.category === activeCategory
       const searchMatch = channel.name.toLowerCase().includes(query)
-
       return categoryMatch && searchMatch
     })
   }, [activeCategory, channels, searchTerm])
 
   return (
-    <section className="h-full rounded-2xl border border-neutral-800/80 bg-neutral-900/70 p-3 backdrop-blur sm:p-4">
-      <header className="mb-3 flex items-center justify-between sm:mb-4">
-        <h3 className="font-display text-lg text-white sm:text-xl">Channels</h3>
-        <p className="text-xs text-neutral-400">{channels.length} available</p>
-      </header>
+    <section className="w-full rounded-2xl border border-neutral-800/80 bg-neutral-900/70 p-3 backdrop-blur sm:p-4">
 
-      <div className="mb-3 grid gap-2 sm:mb-4">
+      {/* Playlist source selector */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-neutral-800 pb-3">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
+          Playlist
+        </span>
+        {PLAYLIST_SOURCES.map((source) => (
+          <button
+            key={source.id}
+            type="button"
+            onClick={() => onSelectSource(source.id)}
+            title={source.description}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              activeSourceId === source.id
+                ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-200'
+                : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-500'
+            }`}
+          >
+            {source.label}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-neutral-500">
+          {channels.length} channels
+        </span>
+      </div>
+
+      {/* Search */}
+      <div className="mb-3">
         <input
           type="text"
           value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search channel"
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search channels…"
           className="w-full rounded-xl border border-neutral-700 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-cyan-400/70"
         />
-
-        <div className="flex flex-wrap gap-2">
-          {categories.map((category) => {
-            const isActiveCategory = activeCategory === category
-
-            return (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setActiveCategory(category)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                  isActiveCategory
-                    ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-200'
-                    : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-500'
-                }`}
-              >
-                {category}
-              </button>
-            )
-          })}
-        </div>
       </div>
 
-      <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
+      {/* Category pills */}
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => setActiveCategory(cat)}
+            className={`flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition ${
+              activeCategory === cat
+                ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-200'
+                : 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-500'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Channel grid */}
+      <div className="flex flex-wrap gap-2">
         {isLoading
-          ? Array.from({ length: 4 }).map((_, idx) => <ChannelCardSkeleton key={idx} />)
+          ? Array.from({ length: 12 }).map((_, i) => <ChannelCardSkeleton key={i} />)
+          : filteredChannels.length === 0
+          ? (
+            <div className="w-full rounded-xl border border-neutral-800 bg-neutral-900/80 px-4 py-6 text-center text-sm text-neutral-400">
+              No channels found.
+            </div>
+          )
           : filteredChannels.map((channel) => {
               const isActive = activeChannel?.id === channel.id
+              const viewers = viewerCounts[channel.id] ?? 0
 
               return (
                 <button
                   key={channel.id}
                   type="button"
                   onClick={() => onSelectChannel(channel)}
-                  className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
+                  className={`relative flex w-[88px] flex-shrink-0 flex-col items-center gap-1.5 rounded-xl border p-2 text-center transition ${
                     isActive
                       ? 'border-cyan-400/50 bg-cyan-500/10'
                       : 'border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 hover:bg-neutral-900'
                   }`}
                 >
+                  {/* Dynamic Viewer Count Tag in the top corner of each card */}
+                  <span className="absolute top-1 right-1 flex items-center gap-0.5 rounded bg-black/80 px-1 py-0.5 text-[8px] font-semibold text-neutral-300">
+                    <span className={`h-1 w-1 rounded-full ${viewers > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-500'}`} />
+                    {formatViewers(viewers)}
+                  </span>
+
                   <img
                     src={channel.logo}
                     alt={`${channel.name} logo`}
-                    className="h-12 w-12 rounded-lg object-cover"
+                    className="h-9 w-9 rounded-lg object-cover mt-2"
                     loading="lazy"
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{channel.name}</p>
-                    <p className="text-xs text-neutral-400">{channel.category} • Tap to play</p>
-                  </div>
+                  <p className="w-full truncate text-[10px] font-medium leading-tight text-white">
+                    {channel.name}
+                  </p>
+                  <p className="text-[9px] leading-none text-neutral-500">
+                    {channel.category}
+                  </p>
                 </button>
               )
             })}
-
-        {!isLoading && filteredChannels.length === 0 && (
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/80 p-4 text-center text-sm text-neutral-400">
-            No channel found for this search/category.
-          </div>
-        )}
       </div>
+
     </section>
   )
 }
