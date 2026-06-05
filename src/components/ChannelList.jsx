@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { PLAYLIST_SOURCES } from '../data/channels'
-import { useViewerCounts } from '../hooks/useViewerCounts'
 
 function ChannelCardSkeleton() {
   return (
@@ -29,10 +28,10 @@ function ChannelList({
   onSelectChannel,
   onSelectSource,
   isLoading,
+  viewerCounts = {},
 }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
-  const viewerCounts = useViewerCounts(channels)
 
   const filteredChannels = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
@@ -125,16 +124,15 @@ function ChannelList({
                       : 'border-neutral-800 bg-neutral-900/60 hover:border-neutral-700 hover:bg-neutral-900'
                   }`}
                 >
-                  {/* Dynamic Viewer Count Tag in the top corner of each card */}
                   <span className="absolute top-1 right-1 flex items-center gap-0.5 rounded bg-black/80 px-1 py-0.5 text-[8px] font-semibold text-neutral-300">
-                    <span className={`h-1 w-1 rounded-full ${viewers > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-500'}`} />
-                    {formatViewers(viewers)}
+                    <span className={`h-1 w-1 rounded-full ${viewers > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-600'}`} />
+                    {viewers > 0 ? formatViewers(viewers) : '–'}
                   </span>
 
                   <img
                     src={channel.logo}
                     alt={`${channel.name} logo`}
-                    className="h-9 w-9 rounded-lg object-cover mt-2"
+                    className="mt-2 h-9 w-9 rounded-lg object-cover"
                     loading="lazy"
                   />
                   <p className="w-full truncate text-[10px] font-medium leading-tight text-white">
@@ -147,7 +145,6 @@ function ChannelList({
               )
             })}
       </div>
-
     </section>
   )
 }

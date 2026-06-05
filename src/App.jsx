@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ChannelList from './components/ChannelList'
 import VideoPlayer from './components/VideoPlayer'
-import { useViewerCounts } from './hooks/useViewerCounts' // 👈 Imported Hook
+import { useViewerCounts } from './hooks/useViewerCounts'
 import {
   DEFAULT_PLAYLIST_SOURCE_ID,
   PLAYLIST_SOURCES,
@@ -21,9 +21,6 @@ function App() {
   const [isChannelListLoading, setIsChannelListLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
-  // Track live real-time metrics across all channels concurrently
-  const viewerCounts = useViewerCounts(channels) // 👈 Instantiated Hook
-
   const activeSource = useMemo(() => {
     return (
       PLAYLIST_SOURCES.find((source) => source.id === activeSourceId) ||
@@ -39,6 +36,9 @@ function App() {
       null
     )
   }, [activeChannelUrl, channels])
+
+  // Pass activeChannel?.id so the hook knows to send heartbeats for it
+  const viewerCounts = useViewerCounts(channels, activeChannel?.id)
 
   useEffect(() => {
     let isMounted = true
@@ -99,39 +99,34 @@ function App() {
 
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-neutral-950 text-neutral-100">
-      {/* Background glow */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_82%_0%,rgba(6,182,212,0.18),transparent_32%),radial-gradient(circle_at_20%_100%,rgba(239,68,68,0.12),transparent_28%)]" />
 
       <div className="relative flex flex-1 flex-col">
 
-        {/* Header — just the branding */}
         <header className="px-4 pt-4 pb-3 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300/90">
             Live Streaming Platform
           </p>
         </header>
 
-        {/* Error banner */}
         {loadError && (
           <div className="mx-4 mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 sm:mx-6">
             {loadError}
           </div>
         )}
 
-        {/* Player — centered */}
         <main className="flex items-center justify-center px-4 sm:px-6">
           <div className="w-full max-w-5xl">
             <VideoPlayer
               key={activeChannel?.url || 'player-empty'}
               channel={activeChannel}
               isLoading={isChannelListLoading}
-              liveViewerCount={viewerCounts[activeChannel?.id] ?? 0} // 👈 Passed value down to component props
+              liveViewerCount={viewerCounts[activeChannel?.id] ?? 0}
             />
           </div>
         </main>
 
-        {/* Channel panel below player */}
-        <div className="mt-3 px-4 pb-4 sm:px-6 sm:pb-6">
+        <div className="mt-3 px-4 pb-6 sm:px-6">
           <ChannelList
             channels={channels}
             activeChannel={activeChannel}
@@ -139,6 +134,7 @@ function App() {
             onSelectChannel={(channel) => setActiveChannelUrl(channel.url)}
             onSelectSource={(id) => setActiveSourceId(id)}
             isLoading={isChannelListLoading}
+            viewerCounts={viewerCounts}
           />
         </div>
 
