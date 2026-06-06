@@ -12,8 +12,11 @@ function VideoPlayer({ channel, isLoading, liveViewerCount = 0 }) {
   const [isPlayerLoading, setIsPlayerLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [currentUrl, setCurrentUrl] = useState(channel?.url)
+  
+  // Track user playing state internally to handle the 3-5 second autoplay bug
+  const [isPlaying, setIsPlaying] = useState(true)
 
-  // 💡 Update our global loader variable whenever the active channel updates
+  // Update our global loader variable whenever the active channel updates
   useEffect(() => {
     if (channel?.id) {
       setActiveChannelTrackingId(channel.id)
@@ -24,6 +27,7 @@ function VideoPlayer({ channel, isLoading, liveViewerCount = 0 }) {
     setCurrentUrl(channel?.url)
     setIsPlayerLoading(true)
     setHasError(false)
+    setIsPlaying(true) // Always auto-play when a user explicitly switches channels
   }
 
   if (isLoading && !channel) {
@@ -63,14 +67,21 @@ function VideoPlayer({ channel, isLoading, liveViewerCount = 0 }) {
 
         {!hasError && (
           <ReactPlayer
+            key={channel.url} // 💡 Crucial Fix: Forces player remount when channel changes
             src={channel.url}
             width="100%"
             height="100%"
             controls
-            playing
+            playing={isPlaying}
             playsInline
             onReady={() => setIsPlayerLoading(false)}
-            onPlay={() => setIsPlayerLoading(false)}
+            onPlay={() => {
+              setIsPlayerLoading(false)
+              setIsPlaying(true)
+            }}
+            onPause={() => {
+              setIsPlaying(false) // Blocks background playlist loops from auto-replaying
+            }}
             onPlaying={() => setIsPlayerLoading(false)}
             onBuffer={() => setIsPlayerLoading(true)}
             onBufferEnd={() => setIsPlayerLoading(false)}

@@ -20,6 +20,7 @@ function App() {
   })
   const [isChannelListLoading, setIsChannelListLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [isPlaying, setIsPlaying] = useState(true)
 
   const activeSource = useMemo(() => {
     return (
@@ -28,16 +29,12 @@ function App() {
     )
   }, [activeSourceId])
 
-  const activeChannel = useMemo(() => {
-    if (!channels.length) return null
-    return (
-      channels.find((channel) => channel.url === activeChannelUrl) ||
-      channels[0] ||
-      null
-    )
-  }, [activeChannelUrl, channels])
+const activeChannel = useMemo(() => {
+  if (!channels.length) return null
+  // Only return the matched channel, remove the '|| channels[0]' fallback line!
+  return channels.find((channel) => channel.url === activeChannelUrl) || null
+}, [activeChannelUrl, channels])
 
-  // Pass activeChannel?.id so the hook knows to send heartbeats for it
   const viewerCounts = useViewerCounts(channels, activeChannel?.id)
 
   useEffect(() => {
@@ -71,12 +68,14 @@ function App() {
 
         setChannels(parsedChannels)
 
-        const restoredChannel = parsedChannels.find(
-          (channel) =>
-            channel.url === localStorage.getItem(getChannelStorageKey(activeSource.id)),
-        )
+        const storedUrl = localStorage.getItem(getChannelStorageKey(activeSource.id))
+        const restoredChannel = parsedChannels.find((channel) => channel.url === storedUrl)
 
-        setActiveChannelUrl(restoredChannel?.url || parsedChannels[0]?.url || '')
+        if (restoredChannel) {
+          setActiveChannelUrl(restoredChannel.url)
+        } else if (parsedChannels.length > 0) {
+          setActiveChannelUrl(parsedChannels[0].url)
+        }
       } catch {
         if (!isMounted) return
         setLoadError('Unable to load live playlist right now. Please try again in a moment.')
@@ -97,45 +96,54 @@ function App() {
     }
   }, [activeChannel, activeSource.id, activeSourceId])
 
+  const handleSelectChannel = (channel) => {
+    setActiveChannelUrl(channel.url)
+    setIsPlaying(true)
+  }
+
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-neutral-950 text-neutral-100">
+    <div className="relative min-h-screen w-full bg-neutral-950 text-neutral-100">
+      {/* Background Decorator */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.08),transparent_30%),radial-gradient(circle_at_82%_0%,rgba(6,182,212,0.18),transparent_32%),radial-gradient(circle_at_20%_100%,rgba(239,68,68,0.12),transparent_28%)]" />
 
-      <div className="relative flex flex-1 flex-col">
+      <div className="relative flex w-full flex-col">
+        
+        {/* STATIC STICKY PLAYER - Stays fixed on top for Mobile/Tablets/Laptops */}
+        <div className="sticky top-0 z-50 w-full bg-neutral-950/95 pb-3 shadow-md backdrop-blur-md">
 
-        <header className="px-4 pt-4 pb-3 sm:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300/90">
-            Live Streaming Platform
-          </p>
-        </header>
+          {loadError && (
+            <div className="mx-4 mb-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-100 sm:mx-6">
+              {loadError}
+            </div>
+          )}
 
-        {loadError && (
-          <div className="mx-4 mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 sm:mx-6">
-            {loadError}
-          </div>
-        )}
+          <main className="flex items-center justify-center px-4 sm:px-6">
+            <div className="w-full max-w-4xl max-h-[40vh] md:max-h-[50vh]">
+              <VideoPlayer
+                key={activeChannel?.url || 'player-empty'}
+                channel={activeChannel}
+                isLoading={isChannelListLoading}
+                liveViewerCount={viewerCounts[activeChannel?.id] ?? 0}
+                isPlaying={isPlaying}
+                setIsPlaying={setIsPlaying}
+              />
+            </div>
+          </main>
+        </div>
 
-        <main className="flex items-center justify-center px-4 sm:px-6">
-          <div className="w-full max-w-5xl">
-            <VideoPlayer
-              key={activeChannel?.url || 'player-empty'}
-              channel={activeChannel}
+        {/* SCROLLABLE CHANNELS SECTION */}
+        <div className="w-full px-4 pt-2 pb-8 sm:px-6">
+          <div className="mx-auto w-full max-w-4xl">
+            <ChannelList
+              channels={channels}
+              activeChannel={activeChannel}
+              activeSourceId={activeSourceId}
+              onSelectChannel={handleSelectChannel}
+              onSelectSource={(id) => setActiveSourceId(id)}
               isLoading={isChannelListLoading}
-              liveViewerCount={viewerCounts[activeChannel?.id] ?? 0}
+              viewerCounts={viewerCounts}
             />
           </div>
-        </main>
-
-        <div className="mt-3 px-4 pb-6 sm:px-6">
-          <ChannelList
-            channels={channels}
-            activeChannel={activeChannel}
-            activeSourceId={activeSourceId}
-            onSelectChannel={(channel) => setActiveChannelUrl(channel.url)}
-            onSelectSource={(id) => setActiveSourceId(id)}
-            isLoading={isChannelListLoading}
-            viewerCounts={viewerCounts}
-          />
         </div>
 
       </div>
